@@ -52,13 +52,13 @@ class AMPO(nn.Module):
         self.project = nn.Sequential(
             nn.Linear(in_size, self.hidden_size),  
             nn.Linear(self.hidden_size, self.hidden_size * 2), 
-            nn.Tanh(),  # tanh(W*Z+b)
+            nn.Tanh(),  
             nn.Linear(self.hidden_size * 2, 1, bias=False), 
         )
 
-    def forward(self, z):  # [512,5,2,32] `
-        w1 = self.max_pool(z)  # [512,5,1,1]
-        w = self.project(z)  # [512,15,2,1]
+    def forward(self, z):  
+        w1 = self.max_pool(z)  
+        w = self.project(z)  
         w2 = self.avg_pool(z)
         w3 = torch.cat([w1, w2], dim=2)
         beta = torch.softmax(w, dim=1)  
