@@ -9,30 +9,8 @@ from dataset import MLZDataset
 from metrics import evaluate_PICP_WS_PL
 from torch.utils.data import DataLoader, Dataset
 
-
-class Global_CNN(nn.Module):
-    def __init__(
-            self,
-            window, n_zone, n_kernels, drop_prob=0.1):
-        super(Global_CNN, self).__init__()
-        self.window = window
-        self.n_zone = n_zone
-        self.drop_prob = drop_prob
-        self.conv2 = nn.Conv2d(1, n_kernels, (window, 1))
-
-    def forward(self, x):
-        x = x.view(-1, 1, self.window, self.n_zone)
-        x2 = F.relu(self.conv2(x))
-        x2 = nn.Dropout(p=self.drop_prob)(x2)
-        x = torch.squeeze(x2, 2)
-        x = torch.transpose(x, 1, 2)
-        return x,
-
-
 class Local_CNN(nn.Module):
-    def __init__(
-            self,
-            window, n_zone, n_kernels, drop_prob=0.1):
+    def __init__(self,window, n_zone, n_kernels, drop_prob=0.1):
         super(Local_CNN, self).__init__()
         self.window = window
         self.n_zone = n_zone
@@ -49,6 +27,21 @@ class Local_CNN(nn.Module):
         x = torch.transpose(x, 1, 2)
         return x,
 
+class Global_CNN(nn.Module):
+    def __init__(self,window, n_zone, n_kernels, drop_prob=0.1):
+        super(Global_CNN, self).__init__()
+        self.window = window
+        self.n_zone = n_zone
+        self.drop_prob = drop_prob
+        self.conv2 = nn.Conv2d(1, n_kernels, (window, 1))
+
+    def forward(self, x):
+        x = x.view(-1, 1, self.window, self.n_zone)
+        x2 = F.relu(self.conv2(x))
+        x2 = nn.Dropout(p=self.drop_prob)(x2)
+        x = torch.squeeze(x2, 2)
+        x = torch.transpose(x, 1, 2)
+        return x,
 
 class AMPO(nn.Module):
     def __init__(self, in_size):
@@ -57,10 +50,10 @@ class AMPO(nn.Module):
         self.max_pool = nn.AdaptiveMaxPool2d(1)
         self.hidden_size = in_size * 2
         self.project = nn.Sequential(
-            nn.Linear(in_size, self.hidden_size),  # W*Z+b2012_10
-            nn.Linear(self.hidden_size, self.hidden_size * 2),  # W*Z+b2012_10
+            nn.Linear(in_size, self.hidden_size),  
+            nn.Linear(self.hidden_size, self.hidden_size * 2), 
             nn.Tanh(),  # tanh(W*Z+b)
-            nn.Linear(self.hidden_size * 2, 1, bias=False),  # q*tanh(W*Z+b)
+            nn.Linear(self.hidden_size * 2, 1, bias=False), 
         )
 
     def forward(self, z):  # [512,5,2,32] `
@@ -68,10 +61,10 @@ class AMPO(nn.Module):
         w = self.project(z)  # [512,15,2,1]
         w2 = self.avg_pool(z)
         w3 = torch.cat([w1, w2], dim=2)
-        beta = torch.softmax(w, dim=1)  # [512,15,2,1]
+        beta = torch.softmax(w, dim=1)  
         w3 = torch.softmax(w3, dim=1)
         beta = beta + w3
-        out = (beta * z).sum(2)  # [512,15,32]
+        out = (beta * z).sum(2) 
         return torch.squeeze(out)
 
 
