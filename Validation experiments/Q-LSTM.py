@@ -17,9 +17,9 @@ class LSTM(nn.Module):
         self.window = window
         self.n_zone = n_zone
         self.drop_prob = drop_prob
-        self.linear1 = nn.Linear(self.window,self.LSTM_unit)
-        self.linear2 = nn.Linear(self.LSTM_unit,self.FC_unit)
-        self.linear3 = nn.Linear(self.FC_unit,self.LSTM_unit)
+        self.linear1 = nn.Linear(window,LSTM_unit)
+        self.linear2 = nn.Linear(LSTM_unit,FC_unit)
+        self.linear3 = nn.Linear(FC_unit,LSTM_unit)
         self.lstm1 = nn.LSTM(input_size=LSTM_unit, hidden_size=LSTM_unit, num_layers=1, batch_first=True)
     def forward(self, x):
         x = x.view(-1, 1, self.window, self.n_zone)
@@ -43,22 +43,22 @@ class QLSTM(nn.Module):
                  ):
         super(QLSTM, self).__init__()
 
-        self.batch_size = batch_size
-        self.device = device
-        self.lag = lag
-        self.quantiles = quantiles.to(device)
-        self.n_quantile = self.quantiles.numel()
-        assert self.n_quantile == 2
-
         # parameters from dataset
+        self.lag = lag
         self.window = window
         self.n_zone = n_zone
+
+        # hyperparameters of model
+        self.total_loss = 0.
+        self.device = device
         self.FC_unit = FC_unit
         self.LSTM_unit = LSTM_unit
         self.drop_prob = drop_prob
+        self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.criterion = criterion
-        self.total_loss = 0.
+        self.quantiles = quantiles.to(device)
+        self.n_quantile = self.quantiles.numel()
+        assert self.n_quantile == 2
 
         # build model
         self.__build_model()
@@ -68,14 +68,14 @@ class QLSTM(nn.Module):
         self.lstm = LSTM( window=self.window, n_zone=self.n_zone, FC_unit=self.FC_unit, LSTM_unit=self.LSTM_unit, drop_prob=self.drop_prob)
         self.dropout = nn.Dropout(p=self.drop_prob)
         self.active_func = nn.Tanh()
-        self.W_output = nn.Linear(self.LSTM_unit, 2)
+        self.linear = nn.Linear(self.LSTM_unit, 2)
 
     def forward(self, x):
         lstm_output, *_ = self.lstm(x)
         # dropout
         drop_output = self.dropout(lstm_output)
         # active function
-        output= self.active_func(self.W_output(drop_output))
+        output= self.active_func(self.linear(drop_output))
         return output
 
     def loss(self, labels, predictions):
