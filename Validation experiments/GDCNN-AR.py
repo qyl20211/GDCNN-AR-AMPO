@@ -63,20 +63,22 @@ class Model(nn.Module):
                  quantiles=torch.tensor(np.array([0.95, 0.05]))):
         super(Model, self).__init__()
 
-        self.batch_size = batch_size
+        # parameters from dataset
+        self.lag = lag
+        self.window = window
+        self.n_zone = n_zone
+
+        # hyperparameters of model
+        self.total_loss = 0.
         self.device = device
+        self.n_kernels = n_kernels
+        self.drop_prob = drop_prob
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
         self.quantiles = quantiles.to(device)
         self.n_quantile = self.quantiles.numel()
         assert self.n_quantile == 2
-        # parameters from dataset
-        self.window = window
-        self.lag = lag
-        self.n_zone = n_zone
-        self.n_kernels = n_kernels
-        # hyperparameters of model
-        self.drop_prob = drop_prob
-        self.learning_rate = learning_rate
-        self.total_loss = 0.
+
         # build model
         self.__build_model()
         self.to(device)
@@ -93,11 +95,8 @@ class Model(nn.Module):
         self.ar = AR(window=self.window)
         self.dropout = nn.Dropout(p=self.drop_prob)
         self.active_func = nn.Tanh()
-        self.W_output1 = nn.Linear(self.n_kernels, 1)
-        self.W_output2 = nn.Linear(self.n_kernels, 1)
-        self.W_output3 = nn.Linear(self.n_kernels, 2)
-        self.ar1 = AR(window=self.window)
-        self.ar2 = AR(window=self.window)
+        self.linear1 = nn.Linear(self.n_kernels, 1)
+        self.linear2 = nn.Linear(self.n_kernels, 1)
 
     def forward(self, x):
         #Nonlinear component
@@ -109,13 +108,13 @@ class Model(nn.Module):
         # dropout
         drop_output = self.dropout(gate_output)
         # active function
-        active_output1 = self.active_func(self.W_output1(drop_output))
-        active_output2 = self.active_func(self.W_output2(drop_output))
+        active_output1 = self.active_func(self.linear1(drop_output))
+        active_output2 = self.active_func(self.linear2(drop_output))
         gdcnn_output = torch.stack([active_output1, active_output2], dim=2)
         nonlinear_output = torch.transpose(torch.squeeze(gdcnn_output), 1, 2)
         #Linear component
-        ar_output1 = self.ar1(x)
-        ar_output2 = self.ar2(x)
+        ar_output1 = self.ar(x)
+        ar_output2 = self.ar(x)
         linear_output = torch.cat((ar_output1, ar_output2), 1)
         #Integration
         output = nonlinear_output + linear_output

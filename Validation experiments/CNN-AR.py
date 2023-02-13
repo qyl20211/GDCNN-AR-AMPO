@@ -45,34 +45,33 @@ class Model(nn.Module):
                  quantiles=torch.tensor(np.array([0.95, 0.05]))):
         super(Model, self).__init__()
 
-        self.batch_size = batch_size
+        # parameters from dataset
+        self.lag = lag
+        self.window = window
+        self.n_zone = n_zone
+
+        # hyperparameters of model
+        self.total_loss = 0.
         self.device = device
+        self.n_kernels = n_kernels
+        self.drop_prob = drop_prob
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
         self.quantiles = quantiles.to(device)
         self.n_quantile = self.quantiles.numel()
         assert self.n_quantile == 2
-        # parameters from dataset
-        self.window = window
-        self.lag = lag
-        self.n_zone = n_zone
-        self.n_kernels = n_kernels
-        # hyperparameters of model
-        self.drop_prob = drop_prob
-        self.learning_rate = learning_rate
-        self.total_loss = 0.
+
         # build model
         self.__build_model()
         self.to(device)
 
     #CNN_AR
     def __build_model(self):
-        self.lCNN = Local_CNN(
-            window=self.window, n_zone=self.n_zone, n_kernels=self.n_kernels,
-            drop_prob=self.drop_prob)
-
+        self.lCNN = Local_CNN(window=self.window, n_zone=self.n_zone, n_kernels=self.n_kernels,drop_prob=self.drop_prob)
         self.ar = AR(window=self.window)
         self.dropout = nn.Dropout(p=self.drop_prob)
         self.active_func = nn.Tanh()
-        self.W_output = nn.Linear(self.n_kernels, 2)
+        self.linear = nn.Linear(self.n_kernels, 2)
         self.ar1 = AR(window=self.window)
         self.ar2 = AR(window=self.window)
 
@@ -82,7 +81,7 @@ class Model(nn.Module):
         # dropout
         drop_output = self.dropout(lCNN_output)
         # active function
-        active_output = self.active_func(self.W_output(drop_output))
+        active_output = self.active_func(self.linear(drop_output))
         nonlinear_output = torch.transpose(active_output, 1, 2)
         #Linear component
         ar_output1 = self.ar1(x)
